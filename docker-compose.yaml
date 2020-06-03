@@ -1,0 +1,68 @@
+version: '3'
+
+services:
+  cassandra:
+    image: cassandra:3.11.6
+    container_name: jaeger_cassandra
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    restart: always
+
+  agent:
+    image: jaegertracing/jaeger-agent
+    container_name: jaeger_agent
+    environment:
+      - REPORTER_GRPC_HOST_PORT=collector:14250
+    depends_on:
+      - collector
+    restart: always
+
+  collector:
+    image: jaegertracing/jaeger-collector
+    container_name: jaeger_collector
+    environment: #&envs
+      - CASSANDRA_SERVERS=cassandra
+      - SPAN_STORAGE_TYPE=cassandra
+      - LOG_LEVEL=warn
+      - CASSANDRA_KEYSPACE=jaeger_v1_dc1
+    depends_on:
+      - jaeger_schema_init
+    restart: always
+
+  query:
+    image: jaegertracing/jaeger-query:latest
+    container_name: jaeger_query
+    #<<: *envs
+    environment: #&envs
+      - CASSANDRA_SERVERS=cassandra
+      - SPAN_STORAGE_TYPE=cassandra
+      - LOG_LEVEL=warn
+      - CASSANDRA_KEYSPACE=jaeger_v1_dc1
+      - JAEGER_AGENT_HOST=agent
+      - JAEGER_AGENT_PORT=6831          
+    ports:
+      - "16686:16686"
+    depends_on:
+      - jaeger_schema_init
+    restart: always
+
+  jaeger_schema_init:
+    image: jaegertracing/jaeger-cassandra-schema
+    environment:
+      - MODE=prod
+    depends_on:
+      - cassandra
+
+  nginx:
+    build:
+      context: ./nginx
+    image: jaeger_nginx
+    container_name: jaeger_nginx
+    ports:
+    - "8080:80"
+    depends_on:
+      - query
+    restart: always
+
+volumes:
+  cassandra_data:
