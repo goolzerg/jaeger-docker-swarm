@@ -1,57 +1,52 @@
 version: '3'
 
 services:
-  cassandra:
-    image: cassandra:3.11.6
+
+  elastic_search: &param
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.2
     container_name: jaeger_cassandra
+    environment:
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - bootstrap.memory_lock=true
+      - discovery.type=single-node
     volumes:
-      - cassandra_data:/var/lib/cassandra
+      - elastic_data:/usr/share/elasticsearch/data
     restart: always
+    networks:
+      - test_net
 
   agent:
     image: jaegertracing/jaeger-agent
     container_name: jaeger_agent
-    environment:
-      - REPORTER_GRPC_HOST_PORT=collector:14250
+    #environment:
+      #- REPORTER_GRPC_HOST_PORT=collector:14250
     depends_on:
       - collector
-    restart: always
+    <<: *param
 
   collector:
     image: jaegertracing/jaeger-collector
     container_name: jaeger_collector
     environment: #&envs
-      - CASSANDRA_SERVERS=cassandra
-      - SPAN_STORAGE_TYPE=cassandra
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elastic_search:9200
       - LOG_LEVEL=warn
-      - CASSANDRA_KEYSPACE=jaeger_v1_dc1
     depends_on:
-      - jaeger_schema_init
-    restart: always
+      - elastic_search
+    <<: *param
 
   query:
     image: jaegertracing/jaeger-query:latest
     container_name: jaeger_query
-    #<<: *envs
-    environment: #&envs
-      - CASSANDRA_SERVERS=cassandra
-      - SPAN_STORAGE_TYPE=cassandra
-      - LOG_LEVEL=warn
-      - CASSANDRA_KEYSPACE=jaeger_v1_dc1
-      - JAEGER_AGENT_HOST=agent
-      - JAEGER_AGENT_PORT=6831          
-    ports:
-      - "16686:16686"
-    depends_on:
-      - jaeger_schema_init
-    restart: always
-
-  jaeger_schema_init:
-    image: jaegertracing/jaeger-cassandra-schema
     environment:
-      - MODE=prod
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://elastic_search:9200
+      - JAEGER_AGENT_HOST=agent
+      - JAEGER_AGENT_PORT=6831
+      - LOG_LEVEL=warn                
     depends_on:
-      - cassandra
+      - elastic_search
+    <<: *param
 
   nginx:
     build:
@@ -62,7 +57,11 @@ services:
     - "8080:80"
     depends_on:
       - query
-    restart: always
+    <<: *param
 
 volumes:
-  cassandra_data:
+  elastic_data:
+
+networks:
+  test_net:
+    driver: overlay
