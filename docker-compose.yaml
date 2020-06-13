@@ -14,15 +14,25 @@ services:
     restart: always
     networks:
       - test_net
-    command: ["elasticsearch", "-Elogger.level=WARN"]
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
 
   agent: 
     image: jaegertracing/jaeger-agent
     container_name: jaeger_agent
     environment:
-      REPORTER_GRPC_HOST_PORT=collector:14250
+      - REPORTER_GRPC_HOST_PORT=collector:14250
+      - LOG_LEVEL=warn
     networks:
       - test_net
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
 
   collector:
     image: jaegertracing/jaeger-collector
@@ -33,6 +43,11 @@ services:
       - LOG_LEVEL=warn
     networks:
       - test_net
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
 
   query:
     image: jaegertracing/jaeger-query:latest
@@ -45,6 +60,11 @@ services:
       - LOG_LEVEL=warn                
     networks:
       - test_net
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
 
   nginx:
     build:
@@ -60,6 +80,11 @@ services:
         interval: 30s
         timeout: 10s
         retries: 5    
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
 
 volumes:
   elastic_data:
