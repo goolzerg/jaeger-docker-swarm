@@ -2,7 +2,8 @@ version: '3'
 
 services:
 
-  template: &templ
+  x-template: &templ
+    image: hello-world
     restart: always
     networks:
       - test_net
@@ -10,9 +11,8 @@ services:
       mode: replicated
       replicas: 1
       placement:
-        constraints: [node.role == manager]
-
-
+        constraints: [node.role == worker]
+        
   elastic_search: 
     image: docker.elastic.co/elasticsearch/elasticsearch:7.5.2
     container_name: jaeger_elastic
