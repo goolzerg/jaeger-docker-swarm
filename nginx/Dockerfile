@@ -4,5 +4,3 @@ RUN apt-get update && \
 apt-get install -y curl 
 
 COPY default.conf /etc/nginx/conf.d
-
-CMD ["nginx", "-s", "reload"]
