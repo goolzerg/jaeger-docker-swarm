@@ -27,7 +27,7 @@ services:
   collector:
     image: jaegertracing/jaeger-collector
     container_name: jaeger_collector
-    environment: #&envs
+    environment:
       - SPAN_STORAGE_TYPE=elasticsearch
       - ES_SERVER_URLS=http://elastic_search:9200
       - LOG_LEVEL=warn
@@ -52,7 +52,7 @@ services:
     image: jaeger_nginx
     container_name: jaeger_nginx
     ports:
-    - "8080:80"
+      - "8080:80"
     networks:
       - test_net
     healthcheck:
