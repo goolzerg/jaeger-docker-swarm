@@ -2,9 +2,9 @@ version: '3'
 
 services:
 
-  elastic_search: &param
+  elastic_search: 
     image: docker.elastic.co/elasticsearch/elasticsearch:7.5.2
-    container_name: jaeger_cassandra
+    container_name: jaeger_elastic
     environment:
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - bootstrap.memory_lock=true
@@ -14,15 +14,15 @@ services:
     restart: always
     networks:
       - test_net
+    command: ["elasticsearch", "-Elogger.level=WARN"]
 
-  agent:
+  agent: 
     image: jaegertracing/jaeger-agent
     container_name: jaeger_agent
-    #environment:
-      #- REPORTER_GRPC_HOST_PORT=collector:14250
-    depends_on:
-      - collector
-    <<: *param
+    environment:
+      REPORTER_GRPC_HOST_PORT=collector:14250
+    networks:
+      - test_net
 
   collector:
     image: jaegertracing/jaeger-collector
@@ -31,9 +31,8 @@ services:
       - SPAN_STORAGE_TYPE=elasticsearch
       - ES_SERVER_URLS=http://elastic_search:9200
       - LOG_LEVEL=warn
-    depends_on:
-      - elastic_search
-    <<: *param
+    networks:
+      - test_net
 
   query:
     image: jaegertracing/jaeger-query:latest
@@ -44,9 +43,8 @@ services:
       - JAEGER_AGENT_HOST=agent
       - JAEGER_AGENT_PORT=6831
       - LOG_LEVEL=warn                
-    depends_on:
-      - elastic_search
-    <<: *param
+    networks:
+      - test_net
 
   nginx:
     build:
@@ -55,9 +53,13 @@ services:
     container_name: jaeger_nginx
     ports:
     - "8080:80"
-    depends_on:
-      - query
-    <<: *param
+    networks:
+      - test_net
+    healthcheck:
+        test: ["CMD", "curl", "-f", "http://query:16686"]
+        interval: 30s
+        timeout: 10s
+        retries: 5    
 
 volumes:
   elastic_data:
