@@ -1,7 +1,6 @@
 version: '3.4'
 
 x-template: &templ
-  restart: always
   networks:
     - test_net
   deploy:
@@ -9,22 +8,34 @@ x-template: &templ
     replicas: 1
     placement:
       constraints: [node.role == worker]
+
+volumes:
+  elastic_data:
+
+networks:
+  test_net:
+    driver: overlay
+
       
 services:        
   elastic_search: 
     image: docker.elastic.co/elasticsearch/elasticsearch:7.5.2
-    container_name: jaeger_elastic
     environment:
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
       - bootstrap.memory_lock=true
       - discovery.type=single-node
     volumes:
       - elastic_data:/usr/share/elasticsearch/data
-    <<: *templ
+    deploy:
+      mode: replicated
+      replicas: 1
+      placement:
+        constraints: [node.labels.elasticsearch == test]
+    networks:
+      - test_net
 
   agent: 
     image: jaegertracing/jaeger-agent
-    container_name: jaeger_agent
     environment:
       - REPORTER_GRPC_HOST_PORT=collector:14250
       - LOG_LEVEL=warn
@@ -32,7 +43,6 @@ services:
 
   collector:
     image: jaegertracing/jaeger-collector
-    container_name: jaeger_collector
     environment:
       - SPAN_STORAGE_TYPE=elasticsearch
       - ES_SERVER_URLS=http://elastic_search:9200
@@ -41,7 +51,6 @@ services:
 
   query:
     image: jaegertracing/jaeger-query:latest
-    container_name: jaeger_query
     environment:
       - SPAN_STORAGE_TYPE=elasticsearch
       - ES_SERVER_URLS=http://elastic_search:9200
@@ -54,24 +63,11 @@ services:
     build:
       context: ./nginx
     image: jaeger_nginx
-    container_name: jaeger_nginx
     ports:
-      - "8080:80"
+      - "80:80"
     healthcheck:
         test: ["CMD", "curl", "-f", "http://query:16686"]
         interval: 30s
         timeout: 10s
         retries: 5
-    <<: *templ 
-    deploy:
-      mode: replicated
-      replicas: 1
-      placement:
-        constraints: [node.role == manager]       
-
-volumes:
-  elastic_data:
-
-networks:
-  test_net:
-    driver: overlay
+    <<: *templ  
